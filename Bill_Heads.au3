@@ -10,72 +10,181 @@
 #include <StringConstants.au3>
 #include <objDictonary.au3>
 #include <Excel.au3>
+#include <FontConstants.au3>
+#include <GUIListBox.au3>
+
+Opt("GUIOnEventMode", 1)
 
 Dim $yorno = 7
 Dim $szDrive, $szDir, $szFName, $szExt, $aFile, $cInputFileName, $cInputFile, $sInputFileText
+Global $hProcHeadsButton, $hMrChairButton, $hDefault_Button, $hApply_Button, $hWholeCommButton, $hMainGUI, $hCombo, $hListbox, $hPrintDocButton, $hCancelDocButton, _
+	$hBillGUI = 9999, $hBillButton = 9999, $hCongGUI = 8888 ; Predeclare the variables with dummy values to prevent firing the Case statements
 
 ;~ Global $cInputFolderDefault = "U:\Constitutional Heads\L Files"
-Global $cInputFolderDefault = "E:\CR\FM"
+Global $cInputFolderDefault = "\\alpha3\E\CR\FM"
 ;~ Global $cOutputFolderDefault = "U:\Constitutional Heads\Output"
-Global $cOutputFolderDefault = "E:\RECSCAN\TofA"
+Global $cOutputFolderDefault = "\\alpha3\E\RECSCAN\TofA"
 Global $cInputFolder, $cOutputFolder
 
 Global $tipmsg = "PLEASE WAIT..."
 
-Dim $Date, $DateSelected, $ValidDate, $msg, $LocalDate, $ProcHeadsButton, $MrChairButton, $hWCbillsNum, $progressbar, $inputFolder, $outputFolder
-Dim $toWholeCommittee
+Dim $Date, $DateSelected, $ValidDate, $msg, $LocalDate, $ProcHeadsButton, $MrChairButton, $hWCbillsNum, $progressbar, $inputFolder, $outputFolder, $SelectedBill, $Radios[0]
+Dim $toWholeCommittee, $toGenLeave
+
+fuMainGUI()
+
 ; create GUI and tabs
+Func fuMainGUI()
 
-GUICreate("Bill Heads Program v0.9", 350, 300)
-$tab = GUICtrlCreateTab(5, 5, 340, 290)
+	$hMainGUI = GUICreate("Bill Heads Program v0.9", 350, 300)
+	GUISetOnEvent($GUI_EVENT_CLOSE, "On_Close") ; Run this function when the main GUI [X] is clicked
+	$tab = GUICtrlCreateTab(5, 5, 340, 290)
 
-; tab 0
-$tab0 = GUICtrlCreateTabItem("Main")
-GUICtrlCreateLabel("Choose Date Below:", 15, 40, 300)
-$LocalDate = _DateAdd('d', -1, _NowCalcDate())
-$Date = GUICtrlCreateMonthCal($LocalDate, 65, 70, 220, 140, $MCS_NOTODAY)
-$DateSelected = GUICtrlCreateLabel("Date Selected: " & $LocalDate, 15, 220, 300)
-$ProcHeadsButton = GUICtrlCreateButton("Process Heads", 35, 240, 120)
-$hWCbillsNum = GUICtrlCreateLabel("", 230, 220, 50, 30, $SS_NOTIFY)
-$MrChairButton = GUICtrlCreateButton("Print Mr. Chair DOC", 195, 240, 120)
-GUICtrlSetState($MrChairButton, $GUI_DISABLE)
-$progressbar = GUICtrlCreateProgress(35, 275, 280, 10, $PBS_SMOOTH)
+	; tab 0
+	$tab0 = GUICtrlCreateTabItem("Main")
+	GUICtrlCreateLabel("Choose Date Below:", 15, 40, 300)
+	$LocalDate = _DateAdd('d', -1, _NowCalcDate())
+	$Date = GUICtrlCreateMonthCal($LocalDate, 65, 70, 220, 140, $MCS_NOTODAY)
+	GUICtrlSetOnEvent(-1, "On_Click") ; Call a common button function
+	$DateSelected = GUICtrlCreateLabel("Date Selected: " & $LocalDate, 15, 220, 300)
+	$hProcHeadsButton = GUICtrlCreateButton("Process Heads", 35, 240, 120)
+	GUICtrlSetOnEvent(-1, "On_Click") ; Call a common button function
+	$hWCbillsNum = GUICtrlCreateLabel("", 230, 220, 50, 30, $SS_NOTIFY)
+	$hMrChairButton = GUICtrlCreateButton("Print Mr. Chair DOC", 195, 240, 120)
+	GUICtrlSetOnEvent(-1, "On_Click") ; Call a common button function
+	GUICtrlSetState($hMrChairButton, $GUI_DISABLE)
+	$progressbar = GUICtrlCreateProgress(35, 275, 280, 10, $PBS_SMOOTH)
 
-; tab 1
-$tab1 = GUICtrlCreateTabItem("Settings")
-GUICtrlCreateLabel("Input Folder:", 15, 40, 300)
-$inputFolder = GUICtrlCreateInput("", 15, 65, 320, 20)
-$cInputFolder = fuGetInputOutput("input", $cInputFolderDefault)
-GUICtrlSetData($inputFolder, $cInputFolder)
+	; tab 1
+	$tab1 = GUICtrlCreateTabItem("Settings")
+	GUICtrlCreateLabel("Input Folder:", 15, 40, 300)
+	$inputFolder = GUICtrlCreateInput("", 15, 65, 320, 20)
+	$cInputFolder = fuGetInputOutput("input", $cInputFolderDefault)
+	GUICtrlSetData($inputFolder, $cInputFolder)
 
-GUICtrlCreateLabel("Output Folder:", 15, 100, 300)
-$outputFolder = GUICtrlCreateInput("", 15, 125, 320, 20)
-$cOutputFolder = fuGetInputOutput("output", $cOutputFolderDefault)
-GUICtrlSetData($outputFolder, $cOutputFolder)
+	GUICtrlCreateLabel("Output Folder:", 15, 100, 300)
+	$outputFolder = GUICtrlCreateInput("", 15, 125, 320, 20)
+	$cOutputFolder = fuGetInputOutput("output", $cOutputFolderDefault)
+	GUICtrlSetData($outputFolder, $cOutputFolder)
 
-$Default_Button = GUICtrlCreateButton("Default", 15, 160, 75)
-$Apply_Button = GUICtrlCreateButton("Apply", 100, 160, 75)
-
-
-GUICtrlCreateTabItem("") ; end tabitem definition
-
-GUISetState()
-
-; Run the GUI until the dialog is closed
-
+	$hDefault_Button = GUICtrlCreateButton("Default", 15, 160, 75)
+	GUICtrlSetOnEvent(-1, "On_Click") ; Call a common button function
+	$hApply_Button = GUICtrlCreateButton("Apply", 100, 160, 75)
+	GUICtrlSetOnEvent(-1, "On_Click") ; Call a common button function
 
 
-While 1
-	$msg = GUIGetMsg()
-	Switch $msg
-		Case $GUI_EVENT_CLOSE
-			Exit
-		Case $Default_Button
+	GUICtrlCreateTabItem("") ; end tabitem definition
+
+	GUISetState()
+
+	; Run the GUI until the dialog is closed
+	While 1
+		Sleep(10)
+	WEnd
+
+EndFunc   ;==>fuMainGUI
+
+Func fuWholeCommGUI()
+	Local $iBillCount = _ObjDictCount($toWholeCommittee)
+	$hBillGUI = GUICreate("Choose a Bill", 300, $iBillCount * 20 + 100)
+	$hWordingLabel = GUICtrlCreateLabel("You have " & $iBillCount & " Word Doc(s). Which one do you want to print?", 5, 8, 295, 25, $SS_CENTER)
+	GUICtrlSetFont($hWordingLabel, Default, $FW_NORMAL, $GUI_FONTITALIC, "Arial")
+	GUISetOnEvent($GUI_EVENT_CLOSE, "On_Close") ; Run this function when the secondary GUI [X] is clicked
+	ReDim $Radios[$iBillCount]
+
+	Local $aP = 50, $aX = 0
+	For $myHR In $toWholeCommittee
+		$Radios[$aX] = GUICtrlCreateRadio( _ObjDictGetValue($toWholeCommittee, $myHR)[2], 50, $aP, 150, 17)
+		$aX += 1
+		$aP += 16
+	Next
+	$hWholeCommButton = GUICtrlCreateButton("Select Bill", 35, $aP + 16, 90)
+	GUICtrlSetOnEvent(-1, "On_Click") ; Call a common button function
+	GUISetState(@SW_SHOW)
+EndFunc   ;==>fuWholeCommGUI
+
+
+Func fuCongressPickerGUI($sThisBill)
+	$hCongGUI = GUICreate("Select House Members", 350, 500)
+	GUISetOnEvent($GUI_EVENT_CLOSE, "On_Close") ; Run this function when the secondary GUI [X] is clicked
+	Local $hSelectMembersHeadLabel = GUICtrlCreateLabel("Select Members:", 15, 7, 320, 20, $SS_LEFT)
+	GUICtrlSetFont($hSelectMembersHeadLabel, Default, $FW_BOLD)
+	Local $hSelectMembersTextLabel = GUICtrlCreateLabel("Select Members from the 'Select Member' combobox below.  As you click on a Member that Member will be added to the listbox below.  " & _
+		"When you have finished selecting Members click on the Print Word Docs button to print Word Docs.", 10, 27, 325, 75, $SS_LEFT)
+	Local $hSelectMemberComboHeaderLabel = GUICtrlCreateLabel("Select Member",15, 95, 320, 16, $SS_CENTER)
+	; Get a list of House members from MS Word doc and convert it into an array
+	Local $oWord = _Word_Create(False, Default)
+	If @error Then Exit MsgBox($MB_ICONERROR, "createWordDoc: _Word_Create House Members", "Error creating a new Word instance." & _
+			@CRLF & "@error = " & @error & ", @extended = " & @extended)
+	Local $sDocument = "\\alpha3\MARKUP\SenateHouseMembers\House.Doc"
+	Local $oWordDoc = _Word_DocOpen($oWord, $sDocument, Default, Default, True)
+	If @error Then Exit MsgBox($MB_SYSTEMMODAL, "Word UDF: _Word_DocOpen Example 1", "Error opening '.\Extras\Test.doc'." & _
+			@CRLF & "@error = " & @error & ", @extended = " & @extended)
+	Local $TextDoc = $oWordDoc.Content.Text ; Ask to Receive the Text from Contents Object of the Object Document
+	_Word_Quit($oWord)
+	Local $aHouseMem = StringSplit($TextDoc, @CR)
+
+	; And here we get the elements into a list
+	Local $sMemList = ""
+	For $i = 3 To UBound($aHouseMem) - 3
+		$sMemList &= "|" & StringSplit($aHouseMem[$i], "   • ", $STR_ENTIRESPLIT)[1]
+	Next
+
+	; Create the combo
+	$hCombo = GUICtrlCreateCombo("", 15, 120, 320, 20)
+	GUICtrlSetOnEvent(-1, "On_Click") ; Call a common button function
+	; And fill it
+	GUICtrlSetData($hCombo, $sMemList)
+
+	Local $hSelectMembersListLabel = GUICtrlCreateLabel("The below Members will print.  To delete a Member in the listbox below click on their name and then press the DELETE key.", 25, 150, 300, 60, $SS_LEFT)
+	Local $hBillNumberLabel = GUICtrlCreateLabel("Bill Number: " & $sThisBill, 25, 190, 300, 16, $SS_CENTER)
+	GUICtrlSetFont($hBillNumberLabel, Default, $FW_BOLD)
+	Local $hListboxLabel = GUICtrlCreateLabel("LISTBOX", 25, 230, 300, 16, $SS_CENTER)
+	HotKeySet("{DELETE}", "HotKeyPressed")
+
+	$hListbox = GuiCtrlCreateList("", 25, 250, 300, 200)
+	$hPrintDocButton = GUICtrlCreateButton("Print Word Docs", 25, 450, 125, 40)
+	GUICtrlSetOnEvent(-1, "On_Click") ; Call a common button function
+	$hCancelDocButton = GUICtrlCreateButton("Close / Cancel", 200, 450, 125, 40)
+	GUICtrlSetOnEvent(-1, "On_Click") ; Call a common button function
+	GUISetState(@SW_SHOW)
+EndFunc   ;==>fuCongressPickerGUI
+
+
+Func HotKeyPressed()
+	Switch @HotKeyPressed ; The last hotkey pressed
+		Case "{DELETE}" ; String is the {DELETE} hotkey
+			_GUICtrlListBox_BeginUpdate(GUICtrlGetHandle($hListbox))
+			Local $sSelectedMemberName = GUICtrlRead($hListbox)
+			_GUICtrlListBox_DeleteString(GUICtrlGetHandle($hListbox), $sSelectedMemberName)
+			_GUICtrlListBox_EndUpdate(GUICtrlGetHandle($hListbox))
+	EndSwitch
+EndFunc
+
+
+Func On_Click()
+	Switch @GUI_CtrlId ; See wich item sent a message
+		Case $Date
+			$ValidDate = _DateIsValid(GUICtrlRead($Date))
+			If $ValidDate Then
+				GUICtrlSetData($DateSelected, "Date Selected: " & GUICtrlRead($Date))
+			EndIf
+		Case $hProcHeadsButton
+			_ObjDictDeleteKey($toGenLeave)
+			_ObjDictDeleteKey($toWholeCommittee)
+			GUICtrlSetState($hMrChairButton, $GUI_DISABLE)
+			GUICtrlSetData($hWCbillsNum, "")
+			GUICtrlSetBkColor($hWCbillsNum, $GUI_BKCOLOR_TRANSPARENT)
+			fuProcHeads()
+		Case $hMrChairButton
+			GUICtrlSetState($hMrChairButton, $GUI_DISABLE)
+			fuWholeCommGUI()
+		Case $hDefault_Button
 			$cInputFolder = $cInputFolderDefault
 			GUICtrlSetData($inputFolder, $cInputFolder)
 			$cOutputFolder = $cOutputFolderDefault
 			GUICtrlSetData($outputFolder, $cOutputFolder)
-		Case $Apply_Button
+		Case $hApply_Button
 			$cInputFolder = GUICtrlRead($inputFolder)
 			$cInputFolder = StringRegExpReplace($cInputFolder, '\\* *$', '') ; strip trailing \ and spaces
 			If Not FileExists($cInputFolder) Then
@@ -93,94 +202,102 @@ While 1
 				MsgBox(16, "Output folder could not be saved", "The output folder could not be saved, Error #" & @error)
 			EndIf
 			GUICtrlSetData($outputFolder, $cOutputFolder)
-		Case $ProcHeadsButton
-			Dim $aMonths[13] = ["00", "JA", "FE", "MR", "AP", "MY", "JN", "JY", "AU", "SE", "OC", "NO", "DE"]
-			Dim $cDay = GUICtrlRead($Date)
-			Dim $nMonth = Number(StringRegExpReplace($cDay, '(\d{4})/(\d{2})/(\d{2})', '$2'))
-			Dim $cTempDay = StringRegExpReplace($cDay, '(\d{4})/(\d{2})/(\d{2})', '$3')
-			Dim $cCaptureFileName = "*" & $cTempDay & $aMonths[$nMonth] & "7.*"
-			$cInputFolder = StringRegExpReplace($cInputFolder, '\\$', '')
-			$cInputFileName = $cInputFolder & "\" & $cCaptureFileName
-			Local $aFileList = _FileListToArray($cInputFolder, $cCaptureFileName, $FLTA_FILESFOLDERS, True)
-
-			If $aFileList <> 0 Then
-
-				; concatenate all files for that day together into one string
-				For $i = 0 To $aFileList[0]
-					$sInputFileText &= FileRead($aFileList[$i])
-				Next
-
-				; preprocessing
-
-;~ 				$sInputFileText = StringRegExpReplace($sInputFileText, '\r?\n', @CRLF) ; make end of line consistent
-;~ 				$sInputFileText = StringRegExpReplace($sInputFileText, '~', ChrW(0x07)) ; precedence code
-;~ 				$sInputFileText = StringRegExpReplace($sInputFileText, '\x{1A}', '') ; remove any stray end of files
-;~ 				$sInputFileText = StringRegExpReplace($sInputFileText, '(?<!\x{0A})\x{07}(I|S|F)', @CRLF & ChrW(0x07) & '$1') ; make sure each bell I, bell S and bell F is on its own line
-;~ 				$sInputFileText = StringRegExpReplace($sInputFileText, '\x{AE}MD[0-9A-Z]{2,2}\x{AF}', '') ; strip Xywrite modes
-;~ 				$sInputFileText = StringRegExpReplace($sInputFileText, '\x{AE}IP.*?\x{AF}', '') ; strip Xywrite modes
-;~ 				$sInputFileText = StringRegExpReplace($sInputFileText, '\x{AE}PT.*?\x{AF}', '') ; strip Xywrite modes
-;~ 				$sInputFileText = StringRegExpReplace($sInputFileText, "(\r\n)(\1)+", "\1") ; strip double newline
-
-;~ 				   ConsoleWrite($sInputFileText)
-				; split the variable into an array of lines
-
-;~ 				Dim $aRecords = StringSplit($sInputFileText, @CRLF, $STR_ENTIRESPLIT)
-;~ 				   _ArrayDisplay($aRecords)
-
-
-				; temp location, change this folder in final script
-
-;~ 				If Not FileExists($cOutputFolder) Then
-;~ 					DirCreate($cOutputFolder)
-;~ 				EndIf
-;~ 				ConsoleWrite($sInputFileText)
-				Local $aI81buckets = StringRegExp($sInputFileText, '(?sm)I81\w(?:(?!I66F).)*?I89General Leave.*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
-
-				Local $aWholeCommitteeBuckets = StringRegExp($sInputFileText, '(?sm)I81\w(?:(?!I66F).)*?(?i:I89In the Committee of the Whole).*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
-				Local $aGeneralLeaveBuckets = StringRegExp($sInputFileText, '(?sm)I81\w(?:(?!I66F).)*?(?i:I89General Leave)(?:(?!I89In the Committee of the Whole).)*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
-;~ 				_ArrayDisplay($aGeneralLeaveBuckets)
-				; Run the routines
-				Local $toGenLeave = fuPopulateGeneralLeaveHash($aGeneralLeaveBuckets)
-;~ 				For $myBillName In $toGenLeave
-;~ 					$this_var = _ObjDictGetValue($toGenLeave, $myBillName)
-;~ 					ConsoleWrite("Bill Name: " & $myBillName & "|||||| Bill No: " & $this_var & @CRLF)
-;~ 				Next
-				fuCreateGenLeaveExcelSheet($toGenLeave)
-
-				$toWholeCommittee = fuPopulateWholeCommitteeHash($aWholeCommitteeBuckets)
-
-
-				If _ObjDictCount($toWholeCommittee) > 0 Then
-					GUICtrlSetState($MrChairButton, $GUI_ENABLE)
-					GUICtrlSetData($hWCbillsNum, _ObjDictCount($toWholeCommittee) & " bills")
-					GUICtrlSetBkColor($hWCbillsNum, 0x00FF00)
+		Case $hWholeCommButton
+			For $x = 0 To UBound($Radios) - 1
+				If BitAND(GUICtrlRead($Radios[$x]), $GUI_CHECKED) = $GUI_CHECKED Then
+					$SelectedBill = GUICtrlRead($Radios[$x], 1)
+;~ 					MsgBox(0, "", "Radio Button " & $Radios[$x])
+;~ 					MsgBox(0, "", "Selected Bill " & $SelectedBill)
 				EndIf
-
-
-				GUICtrlSetData($progressbar, 100)
-				Sleep(2000)
-				GUICtrlSetData($progressbar, 0)
-
-			Else
-				MsgBox(16, "Bills do not exist", 'There are no Bills for ' & $LocalDate & '. Try selecting another date.')
-			EndIf
-		Case $MrChairButton
-			Switch MsgBox($MB_YESNOCANCEL + $MB_ICONQUESTION, "Print Options", "Do you want to print name and state?")
-				Case $IDYES
-
-				Case $IDNO
-					fuCreateComWholeCoverDoc($toWholeCommittee)
-			EndSwitch
-
-		Case $GUI_EVENT_PRIMARYUP
-			$ValidDate = _DateIsValid(GUICtrlRead($Date))
-			If $ValidDate Then
-				GUICtrlSetData($DateSelected, "Date Selected: " & GUICtrlRead($Date))
-			EndIf
+			Next
+			GUICtrlSetState($hWholeCommButton, $GUI_DISABLE)
+			fuCongressPickerGUI($SelectedBill)
+		Case $hCancelDocButton
+			GUIDelete($hCongGUI) ; If it was this GUI - we just delete the GUI <<<<<<<<<<<<<<<
+			GUICtrlSetState($hWholeCommButton, $GUI_ENABLE)
+		Case $hCombo
+			Local $hLB = GUICtrlGetHandle($hListbox)
+			_GUICtrlListBox_BeginUpdate($hLB)
+			Local $sSelectedMemberName = GUICtrlRead($hCombo)
+			_GUICtrlListBox_AddString($hLB, $sSelectedMemberName)
+			_GUICtrlListBox_EndUpdate($hLB)
+		Case $hPrintDocButton
+			Local $hLB = GUICtrlGetHandle($hListbox)
+			Local $iNameCount = _GUICtrlListBox_GetCount($hLB)
+			Local $asMembers[0]
+			For $i = 0 To $iNameCount - 1
+;~ 				MsgBox(0, "", "Radio Button " & _GUICtrlListBox_GetText($hLB, $i))
+				_ArrayAdd($asMembers, _GUICtrlListBox_GetText($hLB, $i))
+			Next
+			fuCreateComWholeCoverDoc($SelectedBill, $asMembers)
 	EndSwitch
-WEnd
+EndFunc   ;==>On_Click
+
+Func fuProcHeads()
+	Dim $aMonths[13] = ["00", "JA", "FE", "MR", "AP", "MY", "JN", "JY", "AU", "SE", "OC", "NO", "DE"]
+	Dim $cDay = GUICtrlRead($Date)
+	Dim $nMonth = Number(StringRegExpReplace($cDay, '(\d{4})/(\d{2})/(\d{2})', '$2'))
+	Dim $cTempDay = StringRegExpReplace($cDay, '(\d{4})/(\d{2})/(\d{2})', '$3')
+	Dim $cCaptureFileName = "*" & $cTempDay & $aMonths[$nMonth] & "7.*"
+	$cInputFolder = StringRegExpReplace($cInputFolder, '\\$', '')
+	$cInputFileName = $cInputFolder & "\" & $cCaptureFileName
+	Local $aFileList = _FileListToArray($cInputFolder, $cCaptureFileName, $FLTA_FILES, True)
+
+	If $aFileList <> 0 Then
+
+		; concatenate all files for that day together into one string
+		$sInputFileText = ''
+		For $i = 1 To $aFileList[0]
+			$sInputFileText &= FileRead($aFileList[$i])
+		Next
 
 
+;~ 		Local $aI81buckets = StringRegExp($sInputFileText, '(?sm)I81\w(?:(?!I66F).)*?I89General Leave.*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
+
+		Local $aWholeCommitteeBuckets = StringRegExp($sInputFileText, '(?sm)I81\w(?:(?!I66F).)*?(?i:I89In the Committee of the Whole).*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
+		Local $aGeneralLeaveBuckets = StringRegExp($sInputFileText, '(?sm)I81\w(?:(?!I66F).)*?(?i:I89General Leave)(?:(?!I89In the Committee of the Whole).)*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
+
+		; Run the routines
+		Local $toGenLeave = fuPopulateGeneralLeaveHash($aGeneralLeaveBuckets)
+
+		If _ObjDictCount($toGenLeave) = 0 Then
+			MsgBox(48, "No Bills Found", 'There are no General Leave Bills for ' & $cDay)
+		Else
+			fuCreateGenLeaveExcelSheet($toGenLeave)
+		EndIf
+
+		$toWholeCommittee = fuPopulateWholeCommitteeHash($aWholeCommitteeBuckets)
+		Local $iWholeCount = _ObjDictCount($toWholeCommittee)
+
+		If $iWholeCount > 0 Then
+			GUICtrlSetState($hMrChairButton, $GUI_ENABLE)
+			GUICtrlSetData($hWCbillsNum, $iWholeCount & " bills")
+			GUICtrlSetBkColor($hWCbillsNum, 0x00FF00)
+		EndIf
+
+		GUICtrlSetData($progressbar, 100)
+		Sleep(2000)
+		GUICtrlSetData($progressbar, 0)
+
+	Else
+		MsgBox(16, "Bills do not exist", 'There are no Bills for ' & $cDay & '. Try selecting another date.')
+	EndIf
+EndFunc   ;==>fuProcHeads
+
+
+Func On_Close()
+	Switch @GUI_WinHandle ; See which GUI sent the CLOSE message
+		Case $hMainGUI
+			Exit ; If it was this GUI - we exit <<<<<<<<<<<<<<<
+		Case $hBillGUI
+			GUIDelete($hBillGUI) ; If it was this GUI - we just delete the GUI <<<<<<<<<<<<<<<
+			GUIDelete($hCongGUI) ; Also delete a child GUI <<<<<<<<<<<<<<<
+			GUICtrlSetState($hMrChairButton, $GUI_ENABLE)
+		Case $hCongGUI
+			GUIDelete($hCongGUI) ; If it was this GUI - we just delete the GUI <<<<<<<<<<<<<<<
+			GUICtrlSetState($hWholeCommButton, $GUI_ENABLE)
+	EndSwitch
+EndFunc   ;==>On_Close
 
 
 
@@ -218,11 +335,11 @@ Func fuPopulateGeneralLeaveHash($asBills)
 		$sHeader = StringRegExp($asBills[$i], '(?sm)(?<=I81)(\w.*?)(?=\s*\n)', $STR_REGEXPARRAYMATCH)
 		$sBillNo = StringRegExp($asBills[$i], '(?sm)\(([H|S]\..*?)\)', $STR_REGEXPARRAYMATCH)
 		If @error == 0 Then
-			_ObjDictAdd($to_dict, $sHeader[0], $sBillNo[0] )
+			_ObjDictAdd($to_dict, $sHeader[0], $sBillNo[0])
 		Else
 			$sBillNo = StringRegExp($asBills[$i], '(House.*?Resolution\s*?\d+|Senate.*?Resolution\s*?\d+)', $STR_REGEXPARRAYMATCH)
 			If @error == 0 Then
-				_ObjDictAdd($to_dict, $sHeader[0], $sBillNo[0] )
+				_ObjDictAdd($to_dict, $sHeader[0], $sBillNo[0])
 			Else
 				_ObjDictAdd($to_dict, $sHeader[0], Null)
 			EndIf
@@ -234,13 +351,13 @@ EndFunc   ;==>fuPopulateGeneralLeaveHash
 
 ; function to populate "In the Committee of the Whole" object dictionary
 Func fuPopulateWholeCommitteeHash($asWholeBills)
-	Local $to_dict = _ObjDictCreate();[UBound($asBills)]
+	Local $to_dict_whole = _ObjDictCreate()
 	Local $sHeader = Null
 	For $i = 0 To UBound($asWholeBills) - 1
 		$sHeader = StringRegExp($asWholeBills[$i], '(?sm)(?<=I81)(\w.*?)(?=\s*\n).*?(\w+\s\w+\s*\(([H|S]\..*?)\).*?other\spurposes)', $STR_REGEXPARRAYMATCH)
-		_ObjDictAdd($to_dict, $sHeader[0], $sHeader)
+		_ObjDictAdd($to_dict_whole, $sHeader[2], $sHeader)
 	Next
-	Return $to_dict
+	Return $to_dict_whole
 EndFunc   ;==>fuPopulateWholeCommitteeHash
 
 ; function to produce Excel sheet of General Leave
@@ -265,8 +382,7 @@ Func fuCreateGenLeaveExcelSheet($toActs)
 		_Excel_Close($oExcel1)
 		Exit
 	EndIf
-;~ 	Local $oSheet = _Excel_SheetAdd($oWorkbook)
-;~ 	If @error Then Exit MsgBox($MB_SYSTEMMODAL, "Excel UDF: _Excel_SheetAdd General Leave", "Error adding sheet." & @CRLF & "@error = " & @error & ", @extended = " & @extended)
+
 	_ArrayDelete($asActs, 0)
 	_Excel_RangeWrite($oWorkbook, $oExcel1.ActiveSheet, $asActs, "A1")
 	If @error Then Exit MsgBox($MB_ICONERROR, "Excel UDF: _Excel_RangeWrite General Leave", "Error writing to worksheet." & @CRLF & "@error = " & @error & ", @extended = " & @extended)
@@ -274,50 +390,65 @@ Func fuCreateGenLeaveExcelSheet($toActs)
 	Return
 EndFunc   ;==>fuCreateGenLeaveExcelSheet
 
-; function to print no-name Committee of the Whole covers
-Func fuCreateComWholeCoverDoc($recordHash)
+; function to print Committee of the Whole covers
+Func fuCreateComWholeCoverDoc($sRecordKey, $asMemberNames)
+;~ 	MsgBox(0, "", "Bill Number: " & $sRecordKey)
+;~ 	_ArrayDisplay($asMemberNames)
+;~ 	_ObjDictList($toWholeCommittee, "Committee as a Whole")
+	Local $asBillData = _ObjDictGetValue($toWholeCommittee, $sRecordKey)
+;~ 	_ArrayDisplay($asBillData)
 	$oWordApp = _Word_Create(0, True)
 	If @error Then Exit MsgBox($MB_ICONERROR, "createWordDoc: _Word_Create Template Doc", "Error creating a new Word instance." _
-			 & @CRLF & "@error = " & @error & ", @extended = " & @extended)
-	$oFinalWordApp = _Word_Create(0, True)
-	If @error Then Exit MsgBox($MB_ICONERROR, "createWordDoc: _Word_Create Final Doc", "Error creating a new Word instance" _
-			 & @CRLF & "@error = " & @error & ", @extended = " & @extended)
-	$oDoc_2 = _Word_DocAdd($oFinalWordApp)
-	If @error Then Exit MsgBox($MB_ICONERROR, "createWordDoc: _Word_DocAdd Final Doc", "Error creating a new Word document." _
-			 & @CRLF & "@error = " & @error & ", @extended = " & @extended)
-
+			& @CRLF & "@error = " & @error & ", @extended = " & @extended)
+;~ 	$oFinalWordApp = _Word_Create(0, True)
+;~ 	If @error Then Exit MsgBox($MB_ICONERROR, "createWordDoc: _Word_Create Final Doc", "Error creating a new Word instance" _
+;~ 			& @CRLF & "@error = " & @error & ", @extended = " & @extended)
+;~ 	$oDoc_2 = _Word_DocAdd($oFinalWordApp)
+;~ 	If @error Then Exit MsgBox($MB_ICONERROR, "createWordDoc: _Word_DocAdd Final Doc", "Error creating a new Word document." _
+;~ 			& @CRLF & "@error = " & @error & ", @extended = " & @extended)
+	Dim $cDay = GUICtrlRead($Date)
 	Dim $progpercent = 10
-	Dim $progincrement = Round(_ObjDictCount($recordHash) / $progpercent)
+	Dim $progincrement = Round(UBound($asMemberNames) / $progpercent)
 	GUICtrlSetData($progressbar, 0)
 
+	$oWordApp.Visible = True
+
 	Local $oDoc = 0
-	Local $asBill = Null
-	For $myHR In $recordHash
-		_ArrayDisplay(_ObjDictGetValue($recordHash, $myHR))
+	Local $asNamesState[0]
+	For $sMemberName In $asMemberNames
+;~ 		_ArrayDisplay(_ObjDictGetValue($recordHash, $myHR))
 ;~ 		ConsoleWrite("My key: "&$myHR&" My value: "&_ObjDictGetValue($recordHash, $myHR)&@CRLF)
-		$asBill = _ObjDictGetValue($recordHash, $myHR)
+		$asNamesState = StringSplit($sMemberName, ",")
 		$oDoc = _Word_DocAdd($oWordApp, $wdNewBlankDocument, @ScriptDir & "\COTWTemplate.doc")
 		If @error Then Exit MsgBox($MB_ICONERROR, "createWordDoc: _Word_DocAdd Template", "Error creating a new Word document from template." _
 				 & @CRLF & "@error = " & @error & ", @extended = " & @extended)
-		_Word_DocFindReplace($oDoc, "<TITLE>", $asBill[0])
-		_Word_DocFindReplace($oDoc, "<act>", $asBill[1])
+		_Word_DocFindReplace($oDoc, "<TITLE>", $asBillData[0])
+		If @error Then Exit MsgBox($MB_SYSTEMMODAL, "Word UDF: _Word_DocFindReplace Bill Title", _
+				"Error replacing text in the document." & @CRLF & "@error = " & @error & ", @extended = " & @extended)
+		_Word_DocFindReplace($oDoc, "<aCtWoRdS>", $asBillData[1] & ":")
+		If @error Then Exit MsgBox($MB_SYSTEMMODAL, "Word UDF: _Word_DocFindReplace Bill Summary", _
+				"Error replacing text in the document." & @CRLF & "@error = " & @error & ", @extended = " & @extended)
+		_Word_DocFindReplace($oDoc, "<DateOfBill>", _DateTimeFormat($cDay, 1))
+		If @error Then Exit MsgBox($MB_SYSTEMMODAL, "Word UDF: _Word_DocFindReplace Date", _
+				"Error replacing text in the document." & @CRLF & "@error = " & @error & ", @extended = " & @extended)
 
-		$oRange = _Word_DocRangeSet($oDoc, -1, Default, Default, $wdStory, 1)
-		$oRange.Copy
+;~ 		$oRange = _Word_DocRangeSet($oDoc, -1, Default, Default, $wdStory, 1)
+;~ 		$oRange.Copy
 
-		$oFinalRange = _Word_DocRangeSet($oDoc_2, 0, $wdStory, 1, Default, Default)
-		$oFinalRange.PasteAndFormat(16)
-		_ObjDictDeleteKey($recordHash, $myHR)
-		If _ObjDictCount($recordHash) <> 0 Then
-			$oFinalRange = _Word_DocRangeSet($oDoc_2, $oFinalRange, $wdStory, 1, -1, Default)
-			$oFinalRange.InsertBreak()
-		EndIf
-		GUICtrlSetData($progressbar, (100 - ($progincrement * _ObjDictCount($recordHash))))
+;~ 		$oFinalRange = _Word_DocRangeSet($oDoc_2, 0, $wdStory, 1, Default, Default)
+;~ 		$oFinalRange.PasteAndFormat(16)
+;~ 		_ObjDictDeleteKey($recordHash, $myHR)
+;~ 		If _ObjDictCount($recordHash) <> 0 Then
+;~ 			$oFinalRange = _Word_DocRangeSet($oDoc_2, $oFinalRange, $wdStory, 1, -1, Default)
+;~ 			$oFinalRange.InsertBreak()
+;~ 		EndIf
+		GUICtrlSetData($progressbar, (100 - ($progincrement * UBound($asMemberNames))))
 	Next
-	_Word_DocClose($oDoc)
+;~ 	_Word_DocClose($oDoc)
 
-	$oFinalWordApp.Visible = True
+;~ 	$oFinalWordApp.Visible = True
 ;~ 	_Word_DocSaveAs($oDoc_2, @ScriptDir & "\_Word_Test2.doc")
 ;~ 	_Word_DocClose($oDoc_2)
 	Return
-EndFunc
+EndFunc   ;==>fuCreateComWholeCoverDoc
+
