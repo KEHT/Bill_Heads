@@ -367,7 +367,7 @@ Func fuPopulateWholeCommitteeHash($asWholeBills)
 			_ObjDictAdd($to_dict_whole, $sHeader[2], $sHeader)
 		Else
 			MsgBox($MB_ICONWARNING, "Irregular Wording", "The Committee of the Whole House text does not contain the words ''and for other purposes''." _
-					 & "You must determine what text should be at the end of the paragraph.")
+				& "You must determine what text should be at the end of the paragraph.")
 			$sHeader = StringRegExp($asWholeBills[$i], '(?sm)(?<=I81)(\w.*?)(?=\s*\n).*?(\w+\s\w+\s*\(([H|S]\..*?)\).*?$)', $STR_REGEXPARRAYMATCH)
 			_ObjDictAdd($to_dict_whole, $sHeader[2], $sHeader)
 		EndIf
@@ -428,18 +428,18 @@ Func fuCreateComWholeCoverDoc($sRecordKey, $asMemberNames)
 		$asNamesState = StringSplit($sMemberName, ", ", $STR_ENTIRESPLIT)
 		If $asNamesState[0] = 3 Then
 			$sNameString = "HON. " & StringUpper(StringStripWS($asNamesState[2], $STR_STRIPLEADING + $STR_STRIPTRAILING)) _
-					 & " " & StringUpper(StringStripWS($asNamesState[1], $STR_STRIPLEADING + $STR_STRIPTRAILING))
+				& " " & StringUpper(StringStripWS($asNamesState[1], $STR_STRIPLEADING + $STR_STRIPTRAILING))
 			$sStateString = "of " & StringStripWS(StringRegExp($asNamesState[3], "(?s)[^\(]*", $STR_REGEXPARRAYMATCH)[0], $STR_STRIPLEADING + $STR_STRIPTRAILING)
 		ElseIf $asNamesState[0] = 4 Then
 			$sNameString = "HON. " & StringUpper(StringStripWS($asNamesState[2], $STR_STRIPLEADING + $STR_STRIPTRAILING)) _
-					 & " " & StringUpper(StringStripWS($asNamesState[1], $STR_STRIPLEADING + $STR_STRIPTRAILING)) & ", " _
-					 & StringUpper(StringStripWS($asNamesState[3], $STR_STRIPLEADING + $STR_STRIPTRAILING))
+				& " " & StringUpper(StringStripWS($asNamesState[1], $STR_STRIPLEADING + $STR_STRIPTRAILING)) & ", " _
+				& StringUpper(StringStripWS($asNamesState[3], $STR_STRIPLEADING + $STR_STRIPTRAILING))
 			$sStateString = "of " & StringStripWS(StringRegExp($asNamesState[4], "(?s)[^\(]*", $STR_REGEXPARRAYMATCH)[0], $STR_STRIPLEADING + $STR_STRIPTRAILING)
 		EndIf
 
 		$oDoc = _Word_DocAdd($oWordApp, $wdNewBlankDocument, @ScriptDir & "\COTWTemplate.doc")
 		If @error Then Exit MsgBox($MB_ICONERROR, "createWordDoc: _Word_DocAdd Template", "Error creating a new Word document from template." _
-				 & @CRLF & "@error = " & @error & ", @extended = " & @extended)
+				& @CRLF & "@error = " & @error & ", @extended = " & @extended)
 		_Word_DocFindReplace($oDoc, "<TITLE>", $asBillData[0])
 		If @error Then Exit MsgBox($MB_SYSTEMMODAL, "Word UDF: _Word_DocFindReplace Bill Title", _
 				"Error replacing text in the document." & @CRLF & "@error = " & @error & ", @extended = " & @extended)
