@@ -1,5 +1,6 @@
 ﻿;~ 07/01/2014 - sjohnson@gpo.gov - Alpha version (0.90) BILL_HEADS to process speeches
 ;~ 07/31/2014 - sjohnson@gpo.gov - Beta version (0.99) BILL_HEADS to process HOR daily activities is ready
+;~ 09/17/2014 - sjohnson@gpo.gov - Beta 2 version (0.9.9.3) BILL_HEADS: Fixed long titles in Excel, em dash problems and S/O
 #include <file.au3>
 #include <ClipBoard.au3>
 #include <Array.au3>
@@ -37,7 +38,7 @@ fuMainGUI()
 ; create GUI and tabs
 Func fuMainGUI()
 
-	$hMainGUI = GUICreate("Bill Heads Program v0.99", 350, 300)
+	$hMainGUI = GUICreate("Bill Heads Program v0.9.9.3", 350, 300)
 	GUISetOnEvent($GUI_EVENT_CLOSE, "On_Close") ; Run this function when the main GUI [X] is clicked
 	$tab = GUICtrlCreateTab(5, 5, 340, 290)
 
@@ -132,7 +133,7 @@ Func fuCongressPickerGUI($sThisBill)
 	; And here we get the elements into a list
 	Local $sMemList = ""
 	For $i = 3 To UBound($aHouseMem) - 3
-		$sMemList &= "|" & StringSplit($aHouseMem[$i], "   • ", $STR_ENTIRESPLIT)[1]
+		$sMemList &= "|" & StringSplit($aHouseMem[$i], "   � ", $STR_ENTIRESPLIT)[1]
 	Next
 	; Create the combo
 	$hCombo = GUICtrlCreateCombo("", 15, 120, 320, 20)
@@ -154,7 +155,7 @@ Func fuCongressPickerGUI($sThisBill)
 	GUISetState(@SW_SHOW)
 EndFunc   ;==>fuCongressPickerGUI
 
-
+;~ Captures certain keys activation
 Func HotKeyPressed()
 	Switch @HotKeyPressed ; The last hotkey pressed
 		Case "{DELETE}" ; String is the {DELETE} hotkey
@@ -165,7 +166,7 @@ Func HotKeyPressed()
 	EndSwitch
 EndFunc   ;==>HotKeyPressed
 
-
+;~ Captures an On_Click event
 Func On_Click()
 	Switch @GUI_CtrlId ; See wich item sent a message
 		Case $Date
@@ -341,15 +342,27 @@ Func fuPopulateGeneralLeaveHash($asBills)
 	Local $sBillNo = Null
 	For $i = 0 To UBound($asBills) - 1
 		$sHeader = StringRegExp($asBills[$i], '(?sm)(?<=I81)(\w.*?)(?=\s*\n)', $STR_REGEXPARRAYMATCH)
+		$sHeader[0] = StringRegExpReplace($sHeader[0], '_', '—') ; Replace underscore with em dash
+		$sHeader[0] = wrap_text($sHeader[0], 55) ; Text wrap at around 35 characters to fit nicely into Excell cell
+;~ 		ConsoleWrite($sHeader[0] & @CRLF)
 		$sBillNo = StringRegExp($asBills[$i], '(?sm)\(([H|S]\..*?)\)', $STR_REGEXPARRAYMATCH)
 		If @error == 0 Then
 			_ObjDictAdd($to_dict, $sHeader[0], $sBillNo[0])
+;~ 			ConsoleWrite($sBillNo[0] & @CRLF)
 		Else
 			$sBillNo = StringRegExp($asBills[$i], '(House.*?Resolution\s*?\d+|Senate.*?Resolution\s*?\d+)', $STR_REGEXPARRAYMATCH)
 			If @error == 0 Then
 				_ObjDictAdd($to_dict, $sHeader[0], $sBillNo[0])
+;~ 				ConsoleWrite($sBillNo[0] & @CRLF)
 			Else
-				_ObjDictAdd($to_dict, $sHeader[0], "")
+				$sBillNo = StringRegExp($asBills[$i], 'Special Order', $STR_REGEXPARRAYMATCH)
+				If @error == 0 Then
+					_ObjDictAdd($to_dict, $sHeader[0], "s/o")
+;~ 				ConsoleWrite($sBillNo[0] & @CRLF)
+				Else
+					_ObjDictAdd($to_dict, $sHeader[0], "XXX")
+;~ 					ConsoleWrite("XXX" & @CRLF)
+				EndIf
 			EndIf
 		EndIf
 	Next
@@ -388,7 +401,6 @@ Func fuCreateGenLeaveExcelSheet($toActs)
 		$asActs[$i][1] = $this_var
 		$i += 1
 	Next
-;~ 	_ArrayDisplay($asActs)
 
 	Local $oExcel1 = _Excel_Open()
 	If @error Then Exit MsgBox($MB_ICONERROR, "Excel UDF: _Excel_Open General Leave", "Error creating a new Excel application object." & @CRLF & "@error = " & @error & ", @extended = " & @extended)
@@ -399,24 +411,30 @@ Func fuCreateGenLeaveExcelSheet($toActs)
 		Exit
 	EndIf
 
-	_ArrayDelete($asActs, 0)
-	_Excel_RangeWrite($oWorkbook, $oExcel1.ActiveSheet, $asActs, "A1")
+	$oExcel1.ActiveSheet.Columns("A:B").ColumnWidth = 60
+	If @error Then MsgBox(64, "Excel Bill Sheet", "Error " & @error & " returned by function '_ExcelRowHeightSet' on line " & @ScriptLineNumber)
+	$asActs[0][0] = fuCreateCorrectDate() & @CRLF
+
+	_Excel_RangeWrite($oWorkbook, $oExcel1.ActiveSheet, $asActs, "A1", Default, True)
 	If @error Then Exit MsgBox($MB_ICONERROR, "Excel UDF: _Excel_RangeWrite General Leave", "Error writing to worksheet." & @CRLF & "@error = " & @error & ", @extended = " & @extended)
-	$oExcel1.ActiveSheet.Columns("A:B").AutoFit
+	$oExcel1.ActiveSheet.Range("A1").Font.Size = 24
+	$oExcel1.ActiveSheet.Range("A1").Font.Bold = True
+	$oExcel1.ActiveSheet.Range("A:B").VerticalAlignment = -4160
+;~ 	$oExcel1.ActiveSheet.Range("A:A").VerticalAlignment = $xlDistributed
+	$oExcel1.ActiveSheet.Columns("B:B").AutoFit
 	Return
 EndFunc   ;==>fuCreateGenLeaveExcelSheet
 
 ; function to print Committee of the Whole covers
 Func fuCreateComWholeCoverDoc($sRecordKey, $asMemberNames)
-
 	Local $asBillData = _ObjDictGetValue($toWholeCommittee, $sRecordKey)
-	; Put
+	$asBillData[0] = StringRegExpReplace($asBillData[0], '_', '—') ; Replace underscore with em dash
+	; Put bill abstract on a clipboard
 	ClipPut($asBillData[1] & ":")
 	$oWordApp = _Word_Create(0, True)
 	If @error Then Exit MsgBox($MB_ICONERROR, "createWordDoc: _Word_Create Template Doc", "Error creating a new Word instance." _
 			 & @CRLF & "@error = " & @error & ", @extended = " & @extended)
 
-	Dim $cDay = GUICtrlRead($Date)
 	Dim $progpercent = 10
 	Dim $progincrement = Round(UBound($asMemberNames) / $progpercent)
 	GUICtrlSetData($progressbar, 0)
@@ -427,13 +445,13 @@ Func fuCreateComWholeCoverDoc($sRecordKey, $asMemberNames)
 	For $sMemberName In $asMemberNames
 		$asNamesState = StringSplit($sMemberName, ", ", $STR_ENTIRESPLIT)
 		If $asNamesState[0] = 3 Then
-			$sNameString = "HON. " & StringUpper(StringStripWS($asNamesState[2], $STR_STRIPLEADING + $STR_STRIPTRAILING)) _
-					 & " " & StringUpper(StringStripWS($asNamesState[1], $STR_STRIPLEADING + $STR_STRIPTRAILING))
+			$sNameString = "HON. " & (StringStripWS($asNamesState[2], $STR_STRIPLEADING + $STR_STRIPTRAILING)) _
+					 & " " & (StringStripWS($asNamesState[1], $STR_STRIPLEADING + $STR_STRIPTRAILING))
 			$sStateString = "of " & StringStripWS(StringRegExp($asNamesState[3], "(?s)[^\(]*", $STR_REGEXPARRAYMATCH)[0], $STR_STRIPLEADING + $STR_STRIPTRAILING)
 		ElseIf $asNamesState[0] = 4 Then
-			$sNameString = "HON. " & StringUpper(StringStripWS($asNamesState[2], $STR_STRIPLEADING + $STR_STRIPTRAILING)) _
-					 & " " & StringUpper(StringStripWS($asNamesState[1], $STR_STRIPLEADING + $STR_STRIPTRAILING)) & ", " _
-					 & StringUpper(StringStripWS($asNamesState[3], $STR_STRIPLEADING + $STR_STRIPTRAILING))
+			$sNameString = "HON. " & (StringStripWS($asNamesState[2], $STR_STRIPLEADING + $STR_STRIPTRAILING)) _
+					 & " " & (StringStripWS($asNamesState[1], $STR_STRIPLEADING + $STR_STRIPTRAILING)) & ", " _
+					 & (StringStripWS($asNamesState[3], $STR_STRIPLEADING + $STR_STRIPTRAILING))
 			$sStateString = "of " & StringStripWS(StringRegExp($asNamesState[4], "(?s)[^\(]*", $STR_REGEXPARRAYMATCH)[0], $STR_STRIPLEADING + $STR_STRIPTRAILING)
 		EndIf
 
@@ -446,7 +464,7 @@ Func fuCreateComWholeCoverDoc($sRecordKey, $asMemberNames)
 		_Word_DocFindReplace($oDoc, "<aCtWoRdS>", "^c")
 		If @error Then Exit MsgBox($MB_SYSTEMMODAL, "Word UDF: _Word_DocFindReplace Bill Summary", _
 				"Error replacing text in the document." & @CRLF & "@error = " & @error & ", @extended = " & @extended)
-		_Word_DocFindReplace($oDoc, "<DateOfBill>", _DateTimeFormat($cDay, 1))
+		_Word_DocFindReplace($oDoc, "<DateOfBill>", fuCreateCorrectDate())
 		If @error Then Exit MsgBox($MB_SYSTEMMODAL, "Word UDF: _Word_DocFindReplace Date", _
 				"Error replacing text in the document." & @CRLF & "@error = " & @error & ", @extended = " & @extended)
 		_Word_DocFindReplace($oDoc, "<StateOf>", $sStateString)
@@ -464,3 +482,19 @@ Func fuCreateComWholeCoverDoc($sRecordKey, $asMemberNames)
 	Return
 EndFunc   ;==>fuCreateComWholeCoverDoc
 
+; Function to wrap long lines of text to insert into Excel sheet
+Func wrap_text($txt, $col = 80)
+	$txt = StringRegExpReplace($txt, '(.{1,' & $col & '})( +|$)\n?|(.{' & $col & '})', '$1$3' & @CRLF)
+	Return $txt
+EndFunc   ;==>wrap_text
+
+;~ Function to create a date string without leading zeros
+Func fuCreateCorrectDate()
+	Dim $cDay = GUICtrlRead($Date)
+	Local $aMyDate, $aMyTime
+	_DateTimeSplit($cDay, $aMyDate, $aMyTime)
+	Local $sLongDayName = _DateDayOfWeek(_DateToDayOfWeek($aMyDate[1], $aMyDate[2], $aMyDate[3]))
+	Local $sLongMonthName = _DateToMonth($aMyDate[2])
+	Local $sCompleteDateValue = $sLongDayName & ', ' & $sLongMonthName & ' ' & Number($aMyDate[3]) & ', ' & $aMyDate[1]
+	Return $sCompleteDateValue
+EndFunc   ;==>fuCreateCorrectDate
