@@ -1,9 +1,24 @@
-﻿;~ 07/01/2014 - sjohnson@gpo.gov - Alpha version (0.90) BILL_HEADS to process speeches
+﻿#Region ;**** Directives created by AutoIt3Wrapper_GUI ****
+#AutoIt3Wrapper_Icon=bill_heads_8eA_icon.ico
+#AutoIt3Wrapper_UseX64=n
+#AutoIt3Wrapper_Res_Description=Application producing Bill Head cover sheets
+#AutoIt3Wrapper_Res_Fileversion=1.0.0.3
+#AutoIt3Wrapper_Res_ProductVersion=1.0
+#AutoIt3Wrapper_Res_LegalCopyright=U.S. GPO
+#AutoIt3Wrapper_Res_Language=1033
+#AutoIt3Wrapper_Res_Field=ProductName|Bill Heads Generator
+#AutoIt3Wrapper_Res_Field=OriginalFilename|Bill_Heads.exe
+#AutoIt3Wrapper_Run_Tidy=y
+#AutoIt3Wrapper_Run_Au3Stripper=y
+#EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
+;~ 07/01/2014 - sjohnson@gpo.gov - Alpha version (0.90) BILL_HEADS to process speeches
 ;~ 07/31/2014 - sjohnson@gpo.gov - Beta version (0.99) BILL_HEADS to process HOR daily activities is ready
 ;~ 09/17/2014 - sjohnson@gpo.gov - Beta 2 version (0.9.9.3) BILL_HEADS: Fixed long titles in Excel, em dash problems and S/O
 ;~ 09/19/2014 - sjohnson@gpo.gov - Beta 2 version (0.9.10.1) BILL_HEADS: Created intermediate screen to choose bills for Excel
 ;~ 09/23/2014 - sjohnson@gpo.gov - Beta 2 version (0.9.10.5) BILL_HEADS: Fixed Combobox scrolling selection problem, blank names, etc.
 ;~ 10/01/2014 - sjohnson@gpo.gov - Release 1 version (1.0.0.0) BILL_HEADS: Most likely fixed regex for Committee of the Whole DOC files
+;~ 07/02/2015 - sjohnson@gpo.gov - Bug Fix version (1.0.0.1) BILL_HEADS: Fixing congressmen adding to the list of COTW (unknown bug, may re-appear)
+;~ 08/24/2015 - sjohnson@gpo.gov - Congressmen addition to COTW bug is squashed, hopefully.
 #include <file.au3>
 #include <ClipBoard.au3>
 #include <Array.au3>
@@ -41,7 +56,7 @@ fuMainGUI()
 ; create GUI and tabs
 Func fuMainGUI()
 
-	$hMainGUI = GUICreate("Bill Heads Program v1.0.0.0", 350, 300)
+	$hMainGUI = GUICreate("Bill Heads Program v" & _GetVersion(), 350, 300)
 	GUISetOnEvent($GUI_EVENT_CLOSE, "On_Close") ; Run this function when the main GUI [X] is clicked
 	$tab = GUICtrlCreateTab(5, 5, 340, 290)
 
@@ -256,15 +271,6 @@ Func On_Click()
 		Case $hCancelDocButton
 			GUIDelete($hCongGUI) ; If it was this GUI - we just delete the GUI <<<<<<<<<<<<<<<
 			GUISetState(@SW_ENABLE, $hBillGUI)
-		Case $hCombo
-			Local $hLB = GUICtrlGetHandle($hListbox)
-			_GUICtrlListBox_BeginUpdate($hLB)
-			Local $sSelectedMemberName = StringStripWS(GUICtrlRead($hCombo), $STR_STRIPLEADING + $STR_STRIPTRAILING)
-			If $sSelectedMemberName <> '' And $bSelected Then
-				$bSelected = False
-				_GUICtrlListBox_AddString($hLB, $sSelectedMemberName)
-			EndIf
-			_GUICtrlListBox_EndUpdate($hLB)
 		Case $hPrintDocButton
 			Local $hLB = GUICtrlGetHandle($hListbox)
 			Local $iNameCount = _GUICtrlListBox_GetCount($hLB)
@@ -293,14 +299,6 @@ Func fuProcHeads()
 		For $i = 1 To $aFileList[0]
 			$sInputFileText &= FileRead($aFileList[$i])
 		Next
-
-		; Output of combined files to a single long file for debugging purposes
-;~ 		if FileExists("Test_of_file.txt") Then
-;~ 			FileDelete("Test_of_file.txt")
-;~ 		EndIf
-;~ 		FileWrite("Test_of_file.txt", $sInputFileText)
-
-;~ 		Local $aI81buckets = StringRegExp($sInputFileText, '(?sm)I81\w(?:(?!I66F).)*?I89General Leave.*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
 
 		Local $aWholeCommitteeBuckets = StringRegExp($sInputFileText, '(?sm)I81\w(?:(?!I66F).)*?(?i:I89In the Committee of the Whole).*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
 		Local $aGeneralLeaveBuckets = StringRegExp($sInputFileText, '(?sm)I81\w(?:(?!I66F).)*?(?i:I89General Leave)(?:(?!I89In the Committee of the Whole).)*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
@@ -544,8 +542,29 @@ Func fuCreateCorrectDate()
 EndFunc   ;==>fuCreateCorrectDate
 
 Func WM_COMMAND($hWnd, $iMsg, $iwParam, $ilParam)
-	If _WinAPI_HiWord($iwParam) = $CBN_DROPDOWN Then
-		; Set flag
-		$bSelected = True
+	$nNotifyCode = BitShift($iwParam, 16)
+	$nID = BitAND($iwParam, 0x0000FFFF)
+	$hCtrl = $ilParam
+	If $nID = $hCombo Then
+		Switch $nNotifyCode
+			Case $CBN_SELCHANGE
+				Local $sSelectedMemberName = StringStripWS(GUICtrlRead($hCombo), $STR_STRIPLEADING + $STR_STRIPTRAILING)
+				If $sSelectedMemberName <> '' Then _XferNames($sSelectedMemberName)
+		EndSwitch
 	EndIf
 EndFunc   ;==>WM_COMMAND
+
+Func _GetVersion()
+	If @Compiled Then
+		Return FileGetVersion(@AutoItExe)
+	Else
+		Return IniRead(@ScriptFullPath, "FileVersion", "#AutoIt3Wrapper_Res_Fileversion", "0.0.0.0")
+	EndIf
+EndFunc   ;==>_GetVersion
+
+Func _XferNames($sSelectedMemberName)
+	Local $hLB = GUICtrlGetHandle($hListbox)
+	_GUICtrlListBox_BeginUpdate($hLB)
+	_GUICtrlListBox_AddString($hLB, $sSelectedMemberName)
+	_GUICtrlListBox_EndUpdate($hLB)
+EndFunc   ;==>_XferNames
