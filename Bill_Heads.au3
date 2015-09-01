@@ -2,7 +2,7 @@
 #AutoIt3Wrapper_Icon=bill_heads_8eA_icon.ico
 #AutoIt3Wrapper_UseX64=n
 #AutoIt3Wrapper_Res_Description=Application producing Bill Head cover sheets
-#AutoIt3Wrapper_Res_Fileversion=1.0.0.3
+#AutoIt3Wrapper_Res_Fileversion=1.0.1.0
 #AutoIt3Wrapper_Res_ProductVersion=1.0
 #AutoIt3Wrapper_Res_LegalCopyright=U.S. GPO
 #AutoIt3Wrapper_Res_Language=1033
@@ -19,6 +19,7 @@
 ;~ 10/01/2014 - sjohnson@gpo.gov - Release 1 version (1.0.0.0) BILL_HEADS: Most likely fixed regex for Committee of the Whole DOC files
 ;~ 07/02/2015 - sjohnson@gpo.gov - Bug Fix version (1.0.0.1) BILL_HEADS: Fixing congressmen adding to the list of COTW (unknown bug, may re-appear)
 ;~ 08/24/2015 - sjohnson@gpo.gov - Congressmen addition to COTW bug is squashed, hopefully.
+;~ 09/01/2105 - sjohnson@gpo.gov - Removed counts for bills and added COTW bills to the Excel Spreadsheet
 #include <file.au3>
 #include <ClipBoard.au3>
 #include <Array.au3>
@@ -108,18 +109,23 @@ EndFunc   ;==>fuMainGUI
 
 Func fuChooseBillHeadsGUI()
 	Local $iBillCount = _ObjDictCount($toGenLeave)
+	$iBillCount += _ObjDictCount($toWholeCommittee)
 	$hBillGUI = GUICreate("Choose Quantities & Bills", 300, $iBillCount * 20 + 100, Default, Default, Default, Default, $hMainGUI)
-	$hWordingLabel = GUICtrlCreateLabel("You have " & $iBillCount & " Bill Head(s). Which ones and how many do you want to print?", 0, 8, 295, 30, $SS_CENTER)
+	$hWordingLabel = GUICtrlCreateLabel("You have " & $iBillCount & " Bill Head(s). Which ones do you want to print?", 0, 8, 295, 30, $SS_CENTER)
 	GUICtrlSetFont($hWordingLabel, Default, $FW_NORMAL, $GUI_FONTITALIC, "Arial")
-	$hCountHeader = GUICtrlCreateLabel("Qty", 22, 35, 20, 17)
 	GUISetOnEvent($GUI_EVENT_CLOSE, "On_Close") ; Run this function when the secondary GUI [X] is clicked
 
-	ReDim $CheckBoxes[$iBillCount][2]
+	ReDim $CheckBoxes[$iBillCount][1]
 	;_ObjDictList($toGenLeave)
 	Local $aP = 50, $aX = 0
 	For $myHR In $toGenLeave
 		$CheckBoxes[$aX][0] = GUICtrlCreateCheckbox( _ObjDictGetValue($toGenLeave, $myHR), 60, $aP, 150, 17)
-		$CheckBoxes[$aX][1] = GUICtrlCreateInput("1", 20, $aP, 20, 17, $ES_NUMBER)
+		$aX += 1
+		$aP += 16
+	Next
+
+	For $myHR In $toWholeCommittee.Keys
+		$CheckBoxes[$aX][0] = GUICtrlCreateCheckbox($myHR, 60, $aP, 150, 17)
 		$aX += 1
 		$aP += 16
 	Next
@@ -228,12 +234,12 @@ Func On_Click()
 			For $iX = 0 To UBound($CheckBoxes) - 1
 				If BitAND(GUICtrlRead($CheckBoxes[$iX][0]), $GUI_CHECKED) = $GUI_CHECKED Then
 					$iPos = UBound($SelectedGenBills) + 1
-					ReDim $SelectedGenBills[$iPos][2]
+					ReDim $SelectedGenBills[$iPos][1]
 					$SelectedGenBills[$iPos - 1][0] = GUICtrlRead($CheckBoxes[$iX][0], 1)
-					$SelectedGenBills[$iPos - 1][1] = GUICtrlRead($CheckBoxes[$iX][1])
+;~ 					$SelectedGenBills[$iPos - 1][1] = GUICtrlRead($CheckBoxes[$iX][1])
 				EndIf
 			Next
-			fuCreateGenLeaveExcelSheet($toGenLeave, $SelectedGenBills)
+			fuCreateGenLeaveExcelSheet($toGenLeave, $toWholeCommittee, $SelectedGenBills)
 		Case $hMrChairButton
 			GUISetState(@SW_DISABLE, $hMainGUI)
 			fuWholeCommGUI()
@@ -306,12 +312,6 @@ Func fuProcHeads()
 		; Run the routines
 		$toGenLeave = fuPopulateGeneralLeaveHash($aGeneralLeaveBuckets)
 
-		If _ObjDictCount($toGenLeave) = 0 Then
-			MsgBox(48, "No Bills Found", 'There are no General Leave Bills for ' & $cDay)
-		Else
-			GUISetState(@SW_DISABLE, $hMainGUI)
-			fuChooseBillHeadsGUI()
-		EndIf
 
 		$toWholeCommittee = fuPopulateWholeCommitteeHash($aWholeCommitteeBuckets)
 		Local $iWholeCount = _ObjDictCount($toWholeCommittee)
@@ -320,6 +320,13 @@ Func fuProcHeads()
 			GUICtrlSetState($hMrChairButton, $GUI_ENABLE)
 			GUICtrlSetData($hWCbillsNum, $iWholeCount & " bills")
 			GUICtrlSetBkColor($hWCbillsNum, 0x00FF00)
+		EndIf
+
+		If _ObjDictCount($toGenLeave) = 0 And $iWholeCount = 0 Then
+			MsgBox(48, "No Bills Found", 'There are no General Leave Bills for ' & $cDay)
+		Else
+			GUISetState(@SW_DISABLE, $hMainGUI)
+			fuChooseBillHeadsGUI()
 		EndIf
 
 		GUICtrlSetData($progressbar, 100)
@@ -425,23 +432,44 @@ Func fuPopulateWholeCommitteeHash($asWholeBills)
 EndFunc   ;==>fuPopulateWholeCommitteeHash
 
 ; function to produce Excel sheet of General Leave
-Func fuCreateGenLeaveExcelSheet($toActs, $asChosenBills = '')
-	Local $asActs[1][2] = [["", ""]]
+Func fuCreateGenLeaveExcelSheet($toActs, $toWhole, $asChosenBills = '')
+	Local $asActs[1][3] = [["", "", ""]]
 	Local $iRowIndex = 0
-	Local $iX, $i = 1
+	Local $asBillData
+	Local $i = 1
 	For $myBillName In $toActs
 		$this_var = _ObjDictGetValue($toActs, $myBillName)
-		$iRowIndex = _ArraySearch($asChosenBills, $this_var, 0, 0, 0, 0, 1, 0)
-		If $iRowIndex >= 0 Then
-			For $iX = 1 To $asChosenBills[$iRowIndex][1]
-				ReDim $asActs[UBound($asActs) + 1][2]
-				$asActs[0][0] = $asActs[0][0] + 1
-				$asActs[$i][0] = $myBillName
-				$asActs[$i][1] = $this_var
-				$i += 1
-			Next
+		If @error = 5 Then
+			$asBillData = _ObjDictGetValue($toWhole, $myBillName)
+			$asBillData[0] = StringRegExpReplace($asBillData[0], '_', '—') ; Replace underscore with em dash
+			$this_var = $asBillData[0]
+			$asActs[$i][2] = $asBillData[1]
 		EndIf
 
+		$iRowIndex = _ArraySearch($asChosenBills, $this_var, 0, 0, 0, 0, 1, 0)
+		If $iRowIndex >= 0 Then
+			ReDim $asActs[UBound($asActs) + 1][3]
+			$asActs[0][0] = $asActs[0][0] + 1
+			$asActs[$i][0] = $myBillName
+			$asActs[$i][1] = $this_var
+			$i += 1
+		EndIf
+	Next
+
+	For $myBillName In $toWhole
+		$asBillData = _ObjDictGetValue($toWhole, $myBillName)
+		$asBillData[0] = StringRegExpReplace($asBillData[0], '_', '—') ; Replace underscore with em dash
+		$this_var = $asBillData[2]
+
+		$iRowIndex = _ArraySearch($asChosenBills, $this_var, 0, 0, 0, 0, 1, 0)
+		If $iRowIndex >= 0 Then
+			ReDim $asActs[UBound($asActs) + 1][3]
+			$asActs[0][0] = $asActs[0][0] + 1
+			$asActs[$i][0] = wrap_text($asBillData[0], 55)
+			$asActs[$i][1] = $this_var
+			$asActs[$i][2] = wrap_text($asBillData[1], 55)
+			$i += 1
+		EndIf
 	Next
 
 	Local $oExcel1 = _Excel_Open()
@@ -453,7 +481,7 @@ Func fuCreateGenLeaveExcelSheet($toActs, $asChosenBills = '')
 		Exit
 	EndIf
 
-	$oExcel1.ActiveSheet.Columns("A:B").ColumnWidth = 60
+	$oExcel1.ActiveSheet.Columns("A:C").ColumnWidth = 60
 	If @error Then MsgBox(64, "Excel Bill Sheet", "Error " & @error & " returned by function '_ExcelRowHeightSet' on line " & @ScriptLineNumber)
 	$asActs[0][0] = fuCreateCorrectDate() & @CRLF
 
@@ -461,8 +489,7 @@ Func fuCreateGenLeaveExcelSheet($toActs, $asChosenBills = '')
 	If @error Then Exit MsgBox($MB_ICONERROR, "Excel UDF: _Excel_RangeWrite General Leave", "Error writing to worksheet." & @CRLF & "@error = " & @error & ", @extended = " & @extended)
 	$oExcel1.ActiveSheet.Range("A1").Font.Size = 24
 	$oExcel1.ActiveSheet.Range("A1").Font.Bold = True
-	$oExcel1.ActiveSheet.Range("A:B").VerticalAlignment = -4160
-;~ 	$oExcel1.ActiveSheet.Range("A:A").VerticalAlignment = $xlDistributed
+	$oExcel1.ActiveSheet.Range("A:C").VerticalAlignment = -4160
 	$oExcel1.ActiveSheet.Columns("B:B").AutoFit
 	Return
 EndFunc   ;==>fuCreateGenLeaveExcelSheet
