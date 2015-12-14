@@ -2,7 +2,7 @@
 #AutoIt3Wrapper_Icon=bill_heads_8eA_icon.ico
 #AutoIt3Wrapper_UseX64=n
 #AutoIt3Wrapper_Res_Description=Application producing Bill Head cover sheets
-#AutoIt3Wrapper_Res_Fileversion=1.0.1.1
+#AutoIt3Wrapper_Res_Fileversion=1.0.1.2
 #AutoIt3Wrapper_Res_ProductVersion=1.0
 #AutoIt3Wrapper_Res_LegalCopyright=U.S. GPO
 #AutoIt3Wrapper_Res_Language=1033
@@ -307,8 +307,8 @@ Func fuProcHeads()
 			$sInputFileText &= FileRead($aFileList[$i])
 		Next
 
-;~ 		Local $aWholeCommitteeBuckets = StringRegExp($sInputFileText, '(?sm)I81\w(?:(?!I66F).)*?(?i:I89In the Committee of the Whole).*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
-		Local $aWholeCommitteeBuckets = StringRegExp($sInputFileText, '(?sm)(?i:I89In the Committee of the Whole)(?:(?!I66F).)*?.*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
+		Local $aWholeCommitteeBuckets = StringRegExp($sInputFileText, '(?sm)I81\w(?:(?!I66F).)*?(?i:I89In the Committee of the Whole).*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
+;~ 		Local $aWholeCommitteeBuckets = StringRegExp($sInputFileText, '(?sm)(?i:I89In the Committee of the Whole)(?:(?!I66F).)*?.*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
 		Local $aGeneralLeaveBuckets = StringRegExp($sInputFileText, '(?sm)I81\w(?:(?!I66F).)*?(?i:I89General Leave)(?:(?!I89In the Committee of the Whole).)*?I66F', $STR_REGEXPARRAYGLOBALMATCH)
 
 		; Run the routines
@@ -416,13 +416,13 @@ Func fuPopulateWholeCommitteeHash($asWholeBills)
 	Local $to_dict_whole = _ObjDictCreate()
 	Local $sHeader = Null
 	For $i = 0 To UBound($asWholeBills) - 1
-;~ 		$sHeader = StringRegExp($asWholeBills[$i], '(?sm)(?<=I81)(\w.*?)(?=\s*\n).*?(bill\s*\(([H|S]\..*?)\).*)(?=,\swith\sM)', $STR_REGEXPARRAYMATCH)
-		$sHeader = StringRegExp($asWholeBills[$i], '(?sm)(\w.*?)(?=\s*\n).*?(bill\s*\(([H|S]\..*?)\).*)(?=,\swith\sM)', $STR_REGEXPARRAYMATCH)
+		$sHeader = StringRegExp($asWholeBills[$i], '(?sm)(?<=I81)(\w.*?)(?=\s*\n).*?(bill\s*\(([H|S]\..*?)\).*)(?=,\swith\sM)', $STR_REGEXPARRAYMATCH)
+;~ 		$sHeader = StringRegExp($asWholeBills[$i], '(?sm)(\w.*?)(?=\s*\n).*?(bill\s*\(([H|S]\..*?)\).*)(?=,\swith\sM)', $STR_REGEXPARRAYMATCH)
 		If UBound($sHeader) = 3 Then
 			_ObjDictAdd($to_dict_whole, $sHeader[2], $sHeader)
 		Else
-;~ 			$sHeader = StringRegExp($asWholeBills[$i], '(?sm)(?<=I81)(\w.*?)(?=\s*\n).*?(concurrent\sresolution\s*\(([H|S]\..*?)\).*)(?=,\swith\sM)', $STR_REGEXPARRAYMATCH)
-			$sHeader = StringRegExp($asWholeBills[$i], '(?sm)(\w.*?)(?=\s*\n).*?(concurrent\sresolution\s*\(([H|S]\..*?)\).*)(?=,\swith\sM)', $STR_REGEXPARRAYMATCH)
+			$sHeader = StringRegExp($asWholeBills[$i], '(?sm)(?<=I81)(\w.*?)(?=\s*\n).*?(concurrent\sresolution\s*\(([H|S]\..*?)\).*)(?=,\swith\sM)', $STR_REGEXPARRAYMATCH)
+;~ 			$sHeader = StringRegExp($asWholeBills[$i], '(?sm)(\w.*?)(?=\s*\n).*?(concurrent\sresolution\s*\(([H|S]\..*?)\).*)(?=,\swith\sM)', $STR_REGEXPARRAYMATCH)
 			If UBound($sHeader) = 3 Then
 				_ObjDictAdd($to_dict_whole, $sHeader[2], $sHeader)
 			Else
